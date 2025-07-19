@@ -1,37 +1,32 @@
-# Local .terraform directories
+# Terraform 作業ディレクトリ
 .terraform/
+.terraform.lock.hcl
 
-# .tfstate files
+# Terraform state ファイル
 *.tfstate
 *.tfstate.*
+.terraform.tfstate.lock.info
 
-# Crash log files
-crash.log
-crash.*.log
-
-# Exclude all .tfvars files, which are likely to contain sensitive data, such as
-# password, private keys, and other secrets. These should not be part of version 
-# control as they are data points which are potentially sensitive and subject 
-# to change depending on the environment.
+# Terraform 設定・実行関連
 *.tfvars
 *.tfvars.json
-
-# Ignore override files as they are usually used to override resources locally and so
-# are not checked in
 override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+*.tfplan
 
-# Ignore transient lock info files created by terraform apply
-.terraform.tfstate.lock.info
-
-# Include override files you do wish to add to version control using negated pattern
-# !example_override.tf
-
-# Include tfplan files to ignore the plan output of command: terraform plan -out=tfplan
-# example: *tfplan*
-
-# Ignore CLI configuration files
+# CLI 設定ファイル
 .terraformrc
 terraform.rc
+
+# クラッシュログ・一時ファイル
+crash.log
+crash.*.log
+*.log
+*.bak
+
+# エディタ・IDE
+.vscode/
+.idea/
+
