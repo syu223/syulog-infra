@@ -22,7 +22,12 @@ resource "aws_cloudfront_distribution" "origin-distribution" {
     target_origin_id = "s3-origin"
 
     viewer_protocol_policy = "redirect-to-https"
-
+    
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.add-index-function.arn
+    }
+    
     forwarded_values {
       query_string = false
       cookies {
@@ -44,4 +49,12 @@ resource "aws_cloudfront_distribution" "origin-distribution" {
       restriction_type = "none"
     }
   }
+}
+
+resource "aws_cloudfront_function" "add-index-function" {
+  name    = "add-index-function"
+  runtime = "cloudfront-js-2.0"
+  comment = "Add index.html to the path"
+  publish = true
+  code    = file("${path.module}/addIndexFunction.js")
 }
