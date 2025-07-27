@@ -1,10 +1,10 @@
-terraform { 
-  cloud { 
-    
-    organization = "syu-terraform" 
+terraform {
+  cloud {
 
-    workspaces { 
-      name = "syulog" 
-    } 
-  } 
+    organization = "syu-terraform"
+
+    workspaces {
+      name = "syulog"
+    }
+  }
 }

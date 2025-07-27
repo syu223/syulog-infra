@@ -2,13 +2,13 @@
 # IAM Policyドキュメントの作成
 data "aws_iam_policy_document" "allow_cloudfront" {
   statement {
-    sid       = "AllowCloudFrontServicePrincipal"
-    effect    = "Allow"
+    sid    = "AllowCloudFrontServicePrincipal"
+    effect = "Allow"
     principals {
       type        = "Service"
       identifiers = ["cloudfront.amazonaws.com"]
     }
-    actions = ["s3:GetObject"]
+    actions   = ["s3:GetObject"]
     resources = ["${aws_s3_bucket.private.arn}/*"]
     condition {
       test     = "StringEquals"

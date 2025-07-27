@@ -5,7 +5,7 @@ resource "aws_iam_openid_connect_provider" "tfc" {
 
   client_id_list = ["aws"]
 
-  thumbprint_list = ["9e99a48a9960b14926bb7f3b02e22da0a2e0f9f5"]  # 固定Thumbprint（現時点）
+  thumbprint_list = ["9e99a48a9960b14926bb7f3b02e22da0a2e0f9f5"] # 固定Thumbprint（現時点）
 
   tags = {
     Name = "TerraformCloudOIDC"
