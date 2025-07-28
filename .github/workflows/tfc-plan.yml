@@ -13,6 +13,9 @@ jobs:
       statuses: write
     runs-on: ubuntu-latest
 
+    env:
+      TERRAFORM_CLOUD_TOKEN: ${{ secrets.TERRAFORM_CLOUD_TOKEN }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v3
