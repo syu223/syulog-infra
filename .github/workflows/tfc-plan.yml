@@ -28,8 +28,26 @@ jobs:
         with:
           tflint_version: latest  # or specify version like "0.50.3"
 
-      - name: Terraform Format Check
-        run: terraform fmt -check -recursive
+      - name: Terraform Format Check (with diff)
+        run: |
+          set -e
+          # フォーマットに違反しているファイルをチェック（exit code 3で失敗）
+          terraform fmt -check -recursive || true
+
+          # フォーマットを適用した状態を一時ディレクトリにコピー
+          TMPDIR=$(mktemp -d)
+          cp -r . $TMPDIR
+          cd $TMPDIR
+          terraform fmt -recursive
+
+          # 差分を比較して表示（元のリポジトリと整形済みで違う部分を表示）
+          diff_output=$(diff -u --exclude='.terraform' --exclude='.git' -r . $GITHUB_WORKSPACE || true)
+          if [ -n "$diff_output" ]; then
+            echo "Terraform format issues detected:"
+            echo "$diff_output"
+            exit 1
+          fi
+
 
       - name: terraform init
         run: terraform init -no-color 
