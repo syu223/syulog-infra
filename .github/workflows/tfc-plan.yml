@@ -23,6 +23,11 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v1
+        with:
+          tflint_version: latest  # or specify version like "0.50.3"
+
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
 
