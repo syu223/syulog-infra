@@ -8,12 +8,11 @@ terraform {
 }
 
 provider "aws" {
-  region  = "ap-northeast-1"
-  profile = "SSO_terraform"
+  region = "ap-northeast-1"
+  # profile = "SSO_terraform"
 }
 provider "aws" {
-  alias   = "virginia" # us-east-1（CloudFront用）
-  region  = "us-east-1"
-  profile = "SSO_terraform"
+  alias  = "virginia" # us-east-1（CloudFront用）
+  region = "us-east-1"
+  # profile = "SSO_terraform"
 }
-
