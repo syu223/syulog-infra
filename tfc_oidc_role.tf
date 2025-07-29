@@ -26,7 +26,7 @@ resource "aws_iam_role" "role_tfc_access" {
         Action = "sts:AssumeRoleWithWebIdentity"
         Condition = {
           StringEquals = {
-            "app.terraform.io:aud" = "sts.amazonaws.com"
+            "app.terraform.io:aud" = "aws.workload.identity",
             "app.terraform.io:sub" = "organization:syu-terraform:workspace:syulog"
           }
         }
