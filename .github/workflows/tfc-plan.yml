@@ -56,6 +56,9 @@ jobs:
           tflint --init
           tflint
 
+      - name: terraform init
+        run: terraform init -no-color 
+        
       - name: Terraform Validate
         run: terraform validate -no-color
 
