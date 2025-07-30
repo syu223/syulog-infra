@@ -65,6 +65,8 @@ jobs:
       - name: Terraform Cloud Run Plan
         id: run_plan
         run: |
+          # jq をインストール（Ubuntuの場合）
+          sudo apt-get update && sudo apt-get install -y jq
           # Terraform Cloud API: run plan and get run id
           response=$(curl -sS -X POST \
             -H "Authorization: Bearer $TF_TOKEN_app_terraform_io" \
