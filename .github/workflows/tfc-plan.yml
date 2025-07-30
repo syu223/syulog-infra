@@ -14,7 +14,10 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      TF_TOKEN_app_terraform_io: ${{ secrets.TERRAFORM_CLOUD_TOKEN }} 
+      TF_TOKEN_app_terraform_io: ${{ secrets.TERRAFORM_CLOUD_TOKEN }}
+      TFC_ORG_NAME: syu-terraform
+      TFC_WORKSPACE_NAME: syulog
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - name: Checkout
@@ -22,11 +25,6 @@ jobs:
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
-
-      - name: Setup TFLint
-        uses: terraform-linters/setup-tflint@v1
-        with:
-          tflint_version: latest  # or specify version like "0.50.3"
 
       - name: Terraform Format Check (with diff)
         run: |
@@ -48,23 +46,57 @@ jobs:
             exit 1
           fi
 
-
-      - name: terraform init
-        run: terraform init -no-color 
-
-      - name: Terraform Validate
-        run: terraform validate -no-color
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v1
+        with:
+          tflint_version: latest
 
       - name: TFLint
         run: |
           tflint --init
           tflint
 
-      - name: Terraform Plan
-        run: terraform plan -no-color | tee plan.out
+      - name: Terraform Validate
+        run: terraform validate -no-color
 
-      - name: Comment plan result to PR
-        uses: marocchino/sticky-pull-request-comment@v2
+      - name: Terraform Cloud Run Plan
+        id: run_plan
+        run: |
+          # Terraform Cloud API: run plan and get run id
+          response=$(curl -sS -X POST \
+            -H "Authorization: Bearer $TF_TOKEN_app_terraform_io" \
+            -H "Content-Type: application/vnd.api+json" \
+            -d "{\"data\":{\"attributes\":{\"is-destroy\":false,\"message\":\"Triggered by GitHub Actions\"},\"type\":\"runs\",\"relationships\":{\"workspace\":{\"data\":{\"type\":\"workspaces\",\"id\":\"$(curl -s -H \"Authorization: Bearer $TF_TOKEN_app_terraform_io\" -H \"Content-Type: application/vnd.api+json\" https://app.terraform.io/api/v2/organizations/$TFC_ORG_NAME/workspaces/$TFC_WORKSPACE_NAME | jq -r '.data.id')\"}}}}}" \
+            https://app.terraform.io/api/v2/runs)
+
+          run_id=$(echo "$response" | jq -r '.data.id')
+          echo "run_id=$run_id" >> $GITHUB_OUTPUT
+
+          # Poll until run is completed (apply or discard)
+          while true; do
+            run_status=$(curl -s -H "Authorization: Bearer $TF_TOKEN_app_terraform_io" -H "Content-Type: application/vnd.api+json" https://app.terraform.io/api/v2/runs/$run_id | jq -r '.data.attributes.status')
+            echo "Run status: $run_status"
+            if [[ "$run_status" == "planned" || "$run_status" == "planned_and_finished" ]]; then
+              break
+            elif [[ "$run_status" == "errored" || "$run_status" == "canceled" ]]; then
+              echo "Run failed with status: $run_status"
+              exit 1
+            fi
+            sleep 10
+          done
+
+          # Get plan output URL
+          plan_url="https://app.terraform.io/app/$TFC_ORG_NAME/workspaces/$TFC_WORKSPACE_NAME/runs/$run_id"
+
+          echo "plan_url=$plan_url" >> $GITHUB_OUTPUT
+
+      - name: Comment Terraform Plan Result to PR
+        uses: peter-evans/create-or-update-comment@v3
         with:
-          path: plan.out
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            Terraform Cloud Plan has completed.  
+            [View Plan in Terraform Cloud](${{ steps.run_plan.outputs.plan_url }})
 
