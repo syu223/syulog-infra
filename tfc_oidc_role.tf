@@ -27,7 +27,7 @@ resource "aws_iam_role" "role_tfc_access" {
         Condition = {
           StringEquals = {
             "app.terraform.io:aud" = "aws.workload.identity",
-            "app.terraform.io:sub" = "organization:syu-terraform:workspace:syulog"
+            "app.terraform.io:sub" = "organization:syu-terraform:workspace:syulog:run_phase:*"
           }
         }
       }
