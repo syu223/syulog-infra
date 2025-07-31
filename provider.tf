@@ -13,15 +13,15 @@ variable "TFC_AWS_RUN_ROLE_ARN" {
 }
 
 provider "aws" {
-  region = "ap-northeast-1"
+  region  = "ap-northeast-1"
   profile = "SSO_terraform"
   #assume_role {
   #  role_arn = var.TFC_AWS_RUN_ROLE_ARN
   #}
 }
 provider "aws" {
-  alias  = "virginia" # us-east-1（CloudFront用）
-  region = "us-east-1"
+  alias   = "virginia" # us-east-1（CloudFront用）
+  region  = "us-east-1"
   profile = "SSO_terraform"
   #assume_role {
   #  role_arn = var.TFC_AWS_RUN_ROLE_ARN

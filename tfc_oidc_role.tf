@@ -1,8 +1,8 @@
 # 1. OIDC Provider
 
 resource "aws_iam_openid_connect_provider" "github" {
-  url = "https://token.actions.githubusercontent.com"
-  client_id_list = ["sts.amazonaws.com"]
+  url             = "https://token.actions.githubusercontent.com"
+  client_id_list  = ["sts.amazonaws.com"]
   thumbprint_list = ["6938fd4d98c6a67b5c1b4fefb9b6f2f432d5b9c0"]
   tags = {
     Name = "GitHubActionsOIDC"
@@ -28,6 +28,7 @@ resource "aws_iam_role" "github_oidc_role" {
           },
           StringEquals = {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+          }
         }
       }
     ]
