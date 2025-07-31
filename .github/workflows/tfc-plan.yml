@@ -29,16 +29,13 @@ jobs:
       - name: Terraform Format Check (with diff)
         run: |
           set -e
-          # フォーマットに違反しているファイルをチェック（exit code 3で失敗）
           terraform fmt -check -recursive || true
 
-          # フォーマットを適用した状態を一時ディレクトリにコピー
           TMPDIR=$(mktemp -d)
           cp -r . $TMPDIR
           cd $TMPDIR
           terraform fmt -recursive
 
-          # 差分を比較して表示（元のリポジトリと整形済みで違う部分を表示）
           diff_output=$(diff -u --exclude='.terraform' --exclude='.git' -r . $GITHUB_WORKSPACE || true)
           if [ -n "$diff_output" ]; then
             echo "Terraform format issues detected:"
@@ -63,57 +60,56 @@ jobs:
         run: terraform validate -no-color
 
       - name: Terraform Cloud Run Plan
-  id: run_plan
-  run: |
-    # 1. Workspace ID を先に取得
-    workspace_id=$(curl -s -H "Authorization: Bearer $TF_TOKEN_app_terraform_io" \
-      -H "Content-Type: application/vnd.api+json" \
-      https://app.terraform.io/api/v2/organizations/$TFC_ORG_NAME/workspaces/$TFC_WORKSPACE_NAME \
-      | jq -r '.data.id')
+        id: run_plan
+        run: |
+          # 1. Workspace ID を取得
+          workspace_id=$(curl -s -H "Authorization: Bearer $TF_TOKEN_app_terraform_io" \
+            -H "Content-Type: application/vnd.api+json" \
+            https://app.terraform.io/api/v2/organizations/$TFC_ORG_NAME/workspaces/$TFC_WORKSPACE_NAME \
+            | jq -r '.data.id')
 
-    echo "Workspace ID: $workspace_id"
+          echo "Workspace ID: $workspace_id"
 
-    # 2. Run 作成リクエスト
-    response=$(curl -sS -X POST \
-      -H "Authorization: Bearer $TF_TOKEN_app_terraform_io" \
-      -H "Content-Type: application/vnd.api+json" \
-      -d "{\"data\":{\"attributes\":{\"is-destroy\":false,\"message\":\"GitHub Actionsを契機に実行\"},\"type\":\"runs\",\"relationships\":{\"workspace\":{\"data\":{\"type\":\"workspaces\",\"id\":\"$workspace_id\"}}}}}" \
-      https://app.terraform.io/api/v2/runs)
+          # 2. Run 作成
+          response=$(curl -sS -X POST \
+            -H "Authorization: Bearer $TF_TOKEN_app_terraform_io" \
+            -H "Content-Type: application/vnd.api+json" \
+            -d "{\"data\":{\"attributes\":{\"is-destroy\":false,\"message\":\"GitHub Actionsを契機に実行\"},\"type\":\"runs\",\"relationships\":{\"workspace\":{\"data\":{\"type\":\"workspaces\",\"id\":\"$workspace_id\"}}}}}" \
+            https://app.terraform.io/api/v2/runs)
 
-    echo "Raw run creation response:"
-    echo "$response" | jq
+          echo "Raw run creation response:"
+          echo "$response" | jq
 
-    run_id=$(echo "$response" | jq -r '.data.id')
+          run_id=$(echo "$response" | jq -r '.data.id')
 
-    if [ "$run_id" == "null" ] || [ -z "$run_id" ]; then
-      echo "Failed to create run."
-      exit 1
-    fi
+          if [ "$run_id" == "null" ] || [ -z "$run_id" ]; then
+            echo "Failed to create run."
+            exit 1
+          fi
 
-    echo "Run ID: $run_id"
-    echo "run_id=$run_id" >> $GITHUB_OUTPUT
+          echo "Run ID: $run_id"
+          echo "run_id=$run_id" >> $GITHUB_OUTPUT
 
-    # 3. Run 状態のポーリング
-    while true; do
-      run_status=$(curl -s -H "Authorization: Bearer $TF_TOKEN_app_terraform_io" \
-        -H "Content-Type: application/vnd.api+json" \
-        https://app.terraform.io/api/v2/runs/$run_id | jq -r '.data.attributes.status')
+          # 3. Run 状態をポーリング
+          while true; do
+            run_status=$(curl -s -H "Authorization: Bearer $TF_TOKEN_app_terraform_io" \
+              -H "Content-Type: application/vnd.api+json" \
+              https://app.terraform.io/api/v2/runs/$run_id | jq -r '.data.attributes.status')
 
-      echo "Run status: $run_status"
+            echo "Run status: $run_status"
 
-      if [[ "$run_status" == "planned" || "$run_status" == "planned_and_finished" ]]; then
-        break
-      elif [[ "$run_status" == "errored" || "$run_status" == "canceled" ]]; then
-        echo "Run failed with status: $run_status"
-        exit 1
-      fi
-      sleep 10
-    done
+            if [[ "$run_status" == "planned" || "$run_status" == "planned_and_finished" ]]; then
+              break
+            elif [[ "$run_status" == "errored" || "$run_status" == "canceled" ]]; then
+              echo "Run failed with status: $run_status"
+              exit 1
+            fi
+            sleep 10
+          done
 
-    plan_url="https://app.terraform.io/app/$TFC_ORG_NAME/workspaces/$TFC_WORKSPACE_NAME/runs/$run_id"
-    echo "Plan URL: $plan_url"
-    echo "plan_url=$plan_url" >> $GITHUB_OUTPUT
-
+          plan_url="https://app.terraform.io/app/$TFC_ORG_NAME/workspaces/$TFC_WORKSPACE_NAME/runs/$run_id"
+          echo "Plan URL: $plan_url"
+          echo "plan_url=$plan_url" >> $GITHUB_OUTPUT
 
       - name: Comment Terraform Plan Result to PR
         uses: peter-evans/create-or-update-comment@v3
