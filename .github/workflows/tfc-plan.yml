@@ -1,4 +1,68 @@
-- name: Terraform Cloud Run Plan
+on:
+  push:
+    branches:
+      - "feature/**"
+  pull_request:
+
+jobs:
+  terraform-plan:
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+      statuses: write
+    runs-on: ubuntu-latest
+
+    env:
+      TF_TOKEN_app_terraform_io: ${{ secrets.TERRAFORM_CLOUD_TOKEN }}
+      TFC_ORG_NAME: syu-terraform
+      TFC_WORKSPACE_NAME: syulog
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Terraform Format Check (with diff)
+        run: |
+          set -e
+          # フォーマットに違反しているファイルをチェック（exit code 3で失敗）
+          terraform fmt -check -recursive || true
+
+          # フォーマットを適用した状態を一時ディレクトリにコピー
+          TMPDIR=$(mktemp -d)
+          cp -r . $TMPDIR
+          cd $TMPDIR
+          terraform fmt -recursive
+
+          # 差分を比較して表示（元のリポジトリと整形済みで違う部分を表示）
+          diff_output=$(diff -u --exclude='.terraform' --exclude='.git' -r . $GITHUB_WORKSPACE || true)
+          if [ -n "$diff_output" ]; then
+            echo "Terraform format issues detected:"
+            echo "$diff_output"
+            exit 1
+          fi
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v1
+        with:
+          tflint_version: latest
+
+      - name: TFLint
+        run: |
+          tflint --init
+          tflint
+
+      - name: terraform init
+        run: terraform init -no-color
+
+      - name: Terraform Validate
+        run: terraform validate -no-color
+
+      - name: Terraform Cloud Run Plan
   id: run_plan
   run: |
     # 1. Workspace ID を先に取得
@@ -49,4 +113,15 @@
     plan_url="https://app.terraform.io/app/$TFC_ORG_NAME/workspaces/$TFC_WORKSPACE_NAME/runs/$run_id"
     echo "Plan URL: $plan_url"
     echo "plan_url=$plan_url" >> $GITHUB_OUTPUT
+
+
+      - name: Comment Terraform Plan Result to PR
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            Terraform Cloud Plan has completed.  
+            [View Plan in Terraform Cloud](${{ steps.run_plan.outputs.plan_url }})
 
