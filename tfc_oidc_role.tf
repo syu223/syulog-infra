@@ -1,19 +1,17 @@
 # 1. OIDC Provider
 
-resource "aws_iam_openid_connect_provider" "tfc" {
-  url = "https://app.terraform.io"
-
-  client_id_list = ["aws"]
-
-  thumbprint_list = ["9e99a48a9960b14926bb7f3b02e22da0a2e0f9f5"] # 固定Thumbprint（現時点）
-
+resource "aws_iam_openid_connect_provider" "github" {
+  url = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
+  thumbprint_list = ["6938fd4d98c6a67b5c1b4fefb9b6f2f432d5b9c0"]
   tags = {
-    Name = "TerraformCloudOIDC"
+    Name = "GitHubActionsOIDC"
   }
 }
+
 # 2. IAM Role
-resource "aws_iam_role" "role_tfc_access" {
-  name = "tfc-workspace-access"
+resource "aws_iam_role" "github_oidc_role" {
+  name = "github-terraform-access"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -21,21 +19,22 @@ resource "aws_iam_role" "role_tfc_access" {
       {
         Effect = "Allow"
         Principal = {
-          Federated = aws_iam_openid_connect_provider.tfc.arn
+          Federated = aws_iam_openid_connect_provider.github.arn
         }
         Action = "sts:AssumeRoleWithWebIdentity"
         Condition = {
+          StringLike = {
+            "token.actions.githubusercontent.com:sub" = "repo:syu-terraform/syulog:*"
+          },
           StringEquals = {
-            "app.terraform.io:aud" = "aws.workload.identity",
-            "app.terraform.io:sub" = "organization:syu-terraform:workspace:syulog:run_phase:*"
-          }
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
         }
       }
     ]
   })
 }
 # 3. IAM ポリシーアタッチ（AdministratorAccess）
-resource "aws_iam_role_policy_attachment" "attachment_tfc_access" {
-  role       = aws_iam_role.role_tfc_access.name
+resource "aws_iam_role_policy_attachment" "attach_github_admin" {
+  role       = aws_iam_role.github_oidc_role.name
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }
