@@ -4,7 +4,29 @@ on:
       - "feature/**"
   pull_request:
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
+   inspect-token:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Request OIDC token
+        id: request-oidc-token
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const token = await require('@actions/core').getIDToken();
+            require('@actions/core').setOutput("id_token", token);
+
+      - name: Decode OIDC token `sub`
+        run: |
+          echo "🔐 Decoding OIDC token..."
+          echo "${{ steps.request-oidc-token.outputs.id_token }}" | cut -d '.' -f2 | base64 -d | jq '.sub'
+
+
   terraform-plan:
     permissions:
       id-token: write
@@ -59,18 +81,6 @@ jobs:
 
       - name: Terraform Validate
         run: terraform validate -no-color
-
-      - name: Generate OIDC token
-        id: auth
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const token = await github.actions.getIDToken()
-            core.setOutput("id_token", token)
-
-      - name: Dump OIDC token sub
-        run: |
-          echo "${{ steps.auth.outputs.id_token }}" | cut -d '.' -f2 | base64 -d | jq '.sub'
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
