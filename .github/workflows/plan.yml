@@ -60,6 +60,18 @@ jobs:
       - name: Terraform Validate
         run: terraform validate -no-color
 
+      - name: Generate OIDC token
+        id: auth
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const token = await github.actions.getIDToken()
+            core.setOutput("id_token", token)
+
+      - name: Dump OIDC token sub
+        run: |
+          echo "${{ steps.auth.outputs.id_token }}" | cut -d '.' -f2 | base64 -d | jq '.sub'
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
