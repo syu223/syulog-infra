@@ -90,6 +90,23 @@ jobs:
 
       - name: Terraform Plan (output as binary)
         run: terraform plan -no-color -out=tfplan.binary
+      
+      - name: Create PR for Terraform changes
+        if: steps.extract_plan.outputs.plan_output != 'No changes.'
+        uses: peter-evans/create-pull-request@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'Terraform plan 実行結果に基づく更新'
+          title: 'Terraform plan 変更による自動 PR'
+          body: |
+            ✅ Terraform plan に変更があるため、自動で PR を作成しました。
+            以下の差分をご確認ください。
+
+            ${{ steps.extract_plan.outputs.destroy_warning }}
+
+            ```
+            ${{ steps.extract_plan.outputs.plan_output }}
+            ```
 
       - name: Extract plan output for comment
         id: extract_plan
