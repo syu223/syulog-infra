@@ -7,10 +7,10 @@ terraform {
   }
 }
 
-variable "TFC_AWS_RUN_ROLE_ARN" {
-  type        = string
-  description = "AWS Role ARN to assume for Terraform operations"
-}
+#variable "TFC_AWS_RUN_ROLE_ARN" {
+#  type        = string
+#  description = "AWS Role ARN to assume for Terraform operations"
+#}
 
 provider "aws" {
   region = "ap-northeast-1"
