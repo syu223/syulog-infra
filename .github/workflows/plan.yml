@@ -1,4 +1,3 @@
-
 on:
   push:
     branches:
@@ -33,7 +32,7 @@ jobs:
       contents: read
       pull-requests: write
       statuses: write
-      issues: write  
+      issues: write
     runs-on: ubuntu-latest
 
     env:
@@ -88,26 +87,8 @@ jobs:
           role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE }}
           aws-region: ap-northeast-1
 
-
       - name: Terraform Plan (output as binary)
         run: terraform plan -no-color -out=tfplan.binary
-      
-      - name: Create PR for Terraform changes
-        if: steps.extract_plan.outputs.plan_output != 'No changes.'
-        uses: peter-evans/create-pull-request@v4
-        with:
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-          commit-message: 'Terraform plan 実行結果に基づく更新'
-          title: 'Terraform plan 変更による自動 PR'
-          body: |
-            ✅ Terraform plan に変更があるため、自動で PR を作成しました。
-            以下の差分をご確認ください。
-
-            ${{ steps.extract_plan.outputs.destroy_warning }}
-
-            ```
-            ${{ steps.extract_plan.outputs.plan_output }}
-            ```
 
       - name: Extract plan output for comment
         id: extract_plan
@@ -119,9 +100,26 @@ jobs:
 
           if echo "$plan_text" | grep -q '^- destroy'; then
             echo "destroy_warning=⚠️ Destroy 操作が含まれています。影響に注意してください。" >> $GITHUB_OUTPUT
-          else
+            else
             echo "destroy_warning=" >> $GITHUB_OUTPUT
           fi
+
+      - name: Create PR for Terraform changes ← plan_output が使えるようになる
+        if: steps.extract_plan.outputs.plan_output != 'No changes.'
+        uses: peter-evans/create-pull-request@v4
+        with:
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          commit-message: "Terraform plan 実行結果に基づく更新"
+          title: "Terraform plan 変更による自動 PR"
+          body: |
+            ✅ Terraform plan に変更があるため、自動で PR を作成しました。
+            以下の差分をご確認ください。
+
+            ${{ steps.extract_plan.outputs.destroy_warning }}
+
+            ```
+            ${{ steps.extract_plan.outputs.plan_output }}
+            ```
 
       - name: Comment Plan result to PR
         if: github.event_name == 'pull_request'
