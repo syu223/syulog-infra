@@ -22,12 +22,12 @@ resource "aws_cloudfront_distribution" "origin-distribution" {
     target_origin_id = "s3-origin"
 
     viewer_protocol_policy = "redirect-to-https"
-    
+
     function_association {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.add-index-function.arn
     }
-    
+
     forwarded_values {
       query_string = false
       cookies {
@@ -37,11 +37,11 @@ resource "aws_cloudfront_distribution" "origin-distribution" {
   }
 
   viewer_certificate {
-    acm_certificate_arn            = aws_acm_certificate.cert_syulog.arn
-    ssl_support_method             = "sni-only"
-    minimum_protocol_version       = "TLSv1.2_2021"
+    acm_certificate_arn      = aws_acm_certificate.cert_syulog.arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
   }
-  
+
   aliases = [trimsuffix(data.aws_route53_zone.main.name, ".")]
 
   restrictions {
