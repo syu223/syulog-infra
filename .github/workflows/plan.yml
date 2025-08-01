@@ -96,7 +96,7 @@ jobs:
         if: steps.extract_plan.outputs.plan_output != 'No changes.'
         uses: peter-evans/create-pull-request@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
           commit-message: 'Terraform plan 実行結果に基づく更新'
           title: 'Terraform plan 変更による自動 PR'
           body: |
