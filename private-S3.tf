@@ -1,5 +1,7 @@
 resource "aws_s3_bucket" "private" {
   bucket = "private-syu-terraform" # ← 作成者により異なる（一意の名前である必要あり）
+
+  tags = { Name = "terraform-ci-test" }
 }
 
 resource "aws_s3_bucket_versioning" "private" {
