@@ -11,6 +11,7 @@ permissions:
 jobs:
   inspect-token:
     runs-on: ubuntu-latest
+
     steps:
       - name: Request OIDC token
         id: request-oidc-token
@@ -23,10 +24,7 @@ jobs:
       - name: Decode OIDC token `sub`
         run: |
           echo "🔐 Decoding OIDC token..."
-          echo "${{ steps.request-oidc-token.outputs.id_token }}" \
-            | cut -d '.' -f2 \
-            | base64 -d \
-            | jq '.sub'
+          echo "${{ steps.request-oidc-token.outputs.id_token }}" | cut -d '.' -f2 | base64 -d | jq '.sub'
 
   terraform-plan:
     permissions:
@@ -35,14 +33,13 @@ jobs:
       pull-requests: write
       statuses: write
       issues: write
-
     runs-on: ubuntu-latest
 
     env:
       TF_TOKEN_app_terraform_io: ${{ secrets.TERRAFORM_CLOUD_TOKEN }}
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       #TFC_ORG_NAME: syu-terraform
       #TFC_WORKSPACE_NAME: syulog
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - name: Checkout
@@ -59,12 +56,11 @@ jobs:
           terraform fmt -check -recursive || true
 
           TMPDIR=$(mktemp -d)
-          cp -r . "$TMPDIR"
-          cd "$TMPDIR"
+          cp -r . $TMPDIR
+          cd $TMPDIR
           terraform fmt -recursive
 
-          diff_output=$(diff -u --exclude='.terraform' --exclude='.git' -r . "$GITHUB_WORKSPACE" || true)
-
+          diff_output=$(diff -u --exclude='.terraform' --exclude='.git' -r . $GITHUB_WORKSPACE || true)
           if [ -n "$diff_output" ]; then
             echo "Terraform format issues detected:"
             echo "$diff_output"
@@ -81,7 +77,7 @@ jobs:
           tflint --init
           tflint
 
-      - name: Terraform Init
+      - name: terraform init
         run: terraform init -upgrade -no-color
 
       - name: Terraform Validate
@@ -96,36 +92,52 @@ jobs:
       - name: Terraform Plan (output as binary)
         run: terraform plan -no-color -out=tfplan.binary
 
-      - name: Create PR with Terraform plan result
-        if: success()
-        id: create_pr
+      - name: Extract plan output for comment
+        id: extract_plan
         run: |
           plan_text=$(terraform show -no-color tfplan.binary)
+          echo "plan_output<<EOF" >> $GITHUB_OUTPUT
+          echo "$plan_text" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
           if echo "$plan_text" | grep -q '^- destroy'; then
-            destroy_warning="⚠️ Destroy 操作が含まれています。影響に注意してください。"
-          else
-            destroy_warning=""
+            echo "destroy_warning=⚠️ Destroy 操作が含まれています。影響に注意してください。" >> $GITHUB_OUTPUT
+            else
+            echo "destroy_warning=" >> $GITHUB_OUTPUT
           fi
 
-          body=$(cat <<EOF
-✅ Terraform plan に変更があるため、自動で PR を作成しました。
-以下の差分をご確認ください。
+      - name: Create PR for Terraform changes ← plan_output が使えるようになる
+        if: steps.extract_plan.outputs.plan_output != 'No changes.'
+        uses: peter-evans/create-pull-request@v4
+        with:
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          commit-message: "Terraform plan 実行結果に基づく更新"
+          title: "Terraform plan 変更による自動 PR"
+          body: |
+            ✅ Terraform plan に変更があるため、自動で PR を作成しました。
+            以下の差分をご確認ください。
 
-$destroy_warning
+            ${{ steps.extract_plan.outputs.destroy_warning }}
 
-\`\`\`
-$plan_text
-\`\`\`
-EOF
-          )
+            ```
+            ${{ steps.extract_plan.outputs.plan_output }}
+            ```
+      - name: Debug GitHub context
+        run: |
+          echo "GitHub Event Name: ${{ github.event_name }}"
+          echo "PR Number: ${{ github.event.pull_request.number }}"
 
-          gh pr create \
-            --repo "$GITHUB_REPOSITORY" \
-            --base main \
-            --head "$GITHUB_REF_NAME" \
-            --title "Terraform plan 変更による自動 PR" \
-            --body "$body"
-        env:
-          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+      - name: Comment Plan result to PR
+        if: github.event_name == 'pull_request'
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          repository: ${{ github.repository }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ✅ Terraform プランが正常に実行されました。
+            ${{ steps.extract_plan.outputs.destroy_warning }}
 
+            ```
+            ${{ steps.extract_plan.outputs.plan_output }}
+            ```
