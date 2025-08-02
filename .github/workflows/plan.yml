@@ -37,8 +37,8 @@ jobs:
 
     env:
       TF_TOKEN_app_terraform_io: ${{ secrets.TERRAFORM_CLOUD_TOKEN }}
-      TFC_ORG_NAME: syu-terraform
-      TFC_WORKSPACE_NAME: syulog
+      #TFC_ORG_NAME: syu-terraform
+      #TFC_WORKSPACE_NAME: syulog
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
@@ -47,6 +47,8 @@ jobs:
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_wrapper: false
 
       - name: Terraform Format Check (with diff)
         run: |
@@ -76,7 +78,7 @@ jobs:
           tflint
 
       - name: terraform init
-        run: terraform init -no-color
+        run: terraform init -upgrade -no-color
 
       - name: Terraform Validate
         run: terraform validate -no-color
@@ -135,4 +137,3 @@ jobs:
             ```
             ${{ steps.extract_plan.outputs.plan_output }}
             ```
-
