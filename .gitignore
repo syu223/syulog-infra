@@ -30,3 +30,6 @@ crash.*.log
 .vscode/
 .idea/
 
+#その他
+tfplan.binary
+tfplan
