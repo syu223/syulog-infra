@@ -109,16 +109,16 @@ jobs:
           fi
 
           body=$(cat <<EOF
-            ✅ Terraform plan に変更があるため、自動で PR を作成しました。
-            以下の差分をご確認ください。
+✅ Terraform plan に変更があるため、自動で PR を作成しました。
+以下の差分をご確認ください。
 
-            $destroy_warning
+$destroy_warning
 
-            \`\`\`
-            $plan_text
-            \`\`\`
+\`\`\`
+$plan_text
+\`\`\`
 EOF
-)
+          )
 
           gh pr create \
             --repo "$GITHUB_REPOSITORY" \
