@@ -117,8 +117,8 @@ jobs:
             \`\`\`
             $plan_text
             \`\`\`
-            EOF
-                      )
+EOF
+)
 
           gh pr create \
             --repo "$GITHUB_REPOSITORY" \
