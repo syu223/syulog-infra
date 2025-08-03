@@ -122,5 +122,5 @@ jobs:
             --body "$(cat pr_body.txt)" \
             --head "${{ github.ref_name != '' && github.ref_name || github.head_ref }}"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        
