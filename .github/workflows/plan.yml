@@ -96,9 +96,9 @@ jobs:
           terraform plan -out=tfplan
           terraform show -json tfplan > tfplan.json
 
-          if terraform show -json tfplan | grep -q null; then
-            echo "差分は検出されませんでした。" > pr_body.txt
-          else
+          #if terraform show -json tfplan | grep -q null; then
+          #  echo "差分は検出されませんでした。" > pr_body.txt
+          #else
             terraform show -json tfplan > tfplan.json
             echo "Terraform plan に差分が検出されました。以下は変更内容の詳細です。" > pr_body.txt
 
@@ -122,7 +122,7 @@ jobs:
               + "- Before: `\($before[.] | tostring)`\n"
               + "- After: `\($after[.] | tostring)`\n"
             ' tfplan.json >> pr_body.txt
-          fi
+          #fi
 
       - name: Create PR with structured diff
         if: success()
