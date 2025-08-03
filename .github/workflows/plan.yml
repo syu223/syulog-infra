@@ -122,6 +122,7 @@ jobs:
               + "- Before: `\($before[.] | tostring)`\n"
               + "- After: `\($after[.] | tostring)`\n"
             ' tfplan.json >> pr_body.txt
+          fi
 
       - name: Create PR with structured diff
         if: success()
