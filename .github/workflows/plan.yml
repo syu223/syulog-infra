@@ -13,115 +13,103 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Request OIDC token
+      - name: 🔐 Request OIDC token
         id: request-oidc-token
         uses: actions/github-script@v6
         with:
           script: |
             const token = await core.getIDToken();
-            core.setOutput("id_token", token);
+            core.setOutput("id_token", token)
 
-      - name: Decode OIDC token `sub`
+      - name: 🔍 Decode OIDC token sub
         run: |
           echo "🔐 Decoding OIDC token..."
-          echo "${{ steps.request-oidc-token.outputs.id_token }}" | cut -d '.' -f2 | base64 -d | jq '.sub'
+          echo "${{ steps.request-oidc-token.outputs.id_token }}" \
+            | cut -d '.' -f2 \
+            | base64 -d \
+            | jq '.sub'
 
   terraform-plan:
+    runs-on: ubuntu-latest
+
     permissions:
       id-token: write
       contents: read
       pull-requests: write
       statuses: write
       issues: write
-    runs-on: ubuntu-latest
 
     env:
       TF_TOKEN_app_terraform_io: ${{ secrets.TERRAFORM_CLOUD_TOKEN }}
-      #TFC_ORG_NAME: syu-terraform
-      #TFC_WORKSPACE_NAME: syulog
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-      - name: Checkout
+      - name: ⤵️ Checkout
         uses: actions/checkout@v3
 
-      - name: Setup Terraform
+      - name: ⚙️ Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_wrapper: false
 
-      - name: Terraform Format Check (with diff)
+      - name: 🎨 Terraform Format Check (with diff)
         run: |
-          set -e
           terraform fmt -check -recursive || true
 
           TMPDIR=$(mktemp -d)
-          cp -r . $TMPDIR
-          cd $TMPDIR
+          cp -r . "$TMPDIR"
+          cd "$TMPDIR"
           terraform fmt -recursive
 
-          diff_output=$(diff -u --exclude='.terraform' --exclude='.git' -r . $GITHUB_WORKSPACE || true)
+          diff_output=$(diff -u --exclude='.terraform' --exclude='.git' -r . "$GITHUB_WORKSPACE" || true)
           if [ -n "$diff_output" ]; then
             echo "Terraform format issues detected:"
             echo "$diff_output"
             exit 1
           fi
 
-      - name: Setup TFLint
+      - name: 🧰 Setup TFLint
         uses: terraform-linters/setup-tflint@v1
         with:
           tflint_version: latest
 
-      - name: TFLint
+      - name: 🔍 TFLint run
         run: |
           tflint --init
           tflint
 
-      - name: terraform init
+      - name: 📦 Terraform Init
         run: terraform init -upgrade -no-color
 
-      - name: Terraform Validate
+      - name: ✅ Terraform Validate
         run: terraform validate -no-color
 
-      - name: Configure AWS credentials
+      - name: 🔑 Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE }}
           aws-region: ap-northeast-1
 
-      - name: Terraform Plan (output as binary)
-        run: terraform plan -no-color -out=tfplan.binary
-
-      - name: Extract plan output for comment
+      - name: 📋 Terraform Plan (capture text output)
         id: extract_plan
         run: |
-          plan_text=$(terraform show -no-color tfplan.binary)
-          echo "plan_output<<EOF" >> $GITHUB_OUTPUT
-          echo "$plan_text" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          plan_text=$(terraform plan -no-color)
+          echo "plan_output<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$plan_text" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
           if echo "$plan_text" | grep -q '^- destroy'; then
-            echo "destroy_warning=⚠️ Destroy 操作が含まれています。影響に注意してください。" >> $GITHUB_OUTPUT
-            else
-            echo "destroy_warning=" >> $GITHUB_OUTPUT
+            echo "destroy_warning=⚠️ Destroy 操作が含まれています。影響に注意してください。" >> "$GITHUB_OUTPUT"
+          else
+            echo "destroy_warning=" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Create PR for Terraform changes
-        if: github.ref_name != '' && steps.extract_plan.outputs.plan_output != 'No changes.'
-        uses: peter-evans/create-pull-request@v4
-        with:
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-          base: main
-          branch: ${{ github.head_ref }}
-          commit-message: "Terraform plan 実行結果に基づく更新"
-          title: "Terraform plan 変更による自動 PR"
-          body: |
-            ✅ Terraform plan に変更があるため、自動で PR を作成しました。
-            以下の差分をご確認ください。
-
-            ${{ steps.extract_plan.outputs.destroy_warning }}
-
-            ```
-            ${{ steps.extract_plan.outputs.plan_output }}
-            ```
-
+      - name: 🔃 Create PR using GitHub CLI
+        if: steps.extract_plan.outputs.plan_output != 'No changes.'
+        run: |
+          gh pr create \
+            --title "Terraform plan 実行結果に基づく更新" \
+            --body "✅ Terraform plan に変更があるため、自動で PR を作成しました。\n\n${{ steps.extract_plan.outputs.destroy_warning }}\n\n```\n${{ steps.extract_plan.outputs.plan_output }}\n```" \
+            --head "${{ github.ref_name != '' && github.ref_name || github.head_ref }"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
