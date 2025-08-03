@@ -92,9 +92,7 @@ jobs:
 
       - name: Terraform Plan (JSON + Markdown)
         id: extract_plan_structured
-        continue-on-error: true
         run: |
-
           terraform plan -out=tfplan
           terraform show -json tfplan > tfplan.json
 
@@ -108,11 +106,18 @@ jobs:
           jq -r '
             .resource_changes[]
             | select(.change.actions != ["no-op"])
-            | "### " + .address + "\n"
-            + "- Actions: `" + (.change.actions | join(", ")) + "`\n"
-            + "- Before: `" + (.change.before | tostring) + "`\n"
-            + "- After: `" + (.change.after | tostring) + "`\n"
-          ' tfplan.json > pr_body.txt
+            | . as $res
+            | $res.change.before as $before
+            | $res.change.after as $after
+            | $before
+            | keys_unsorted[]
+            | select($before[.] != $after[.])
+            | "### \($res.address)\n"
+            + "- Actions: `\($res.change.actions | join(", "))`\n"
+            + "- Changed Key: `\(.)`\n"
+            + "- Before: `\($before[.] | tostring)`\n"
+            + "- After: `\($after[.] | tostring)`\n"
+          ' tfplan.json >> pr_body.txt
 
       - name: Create PR with structured diff
         if: success()
@@ -123,4 +128,4 @@ jobs:
             --head "${{ github.ref_name != '' && github.ref_name || github.head_ref }}"
         env:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-        
+
