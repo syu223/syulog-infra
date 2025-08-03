@@ -96,28 +96,32 @@ jobs:
           terraform plan -out=tfplan
           terraform show -json tfplan > tfplan.json
 
-          echo "Terraform plan に差分が検出されました。以下は変更内容の詳細です。" > pr_body.txt
+          if terraform show -json tfplan | grep -q null; then
+            echo "差分は検出されませんでした。" > pr_body.txt
+          else
+            terraform show -json tfplan > tfplan.json
+            echo "Terraform plan に差分が検出されました。以下は変更内容の詳細です。" > pr_body.txt
 
-          # destroy 判定（任意）
-          if terraform show -json tfplan | jq '.resource_changes[].change.actions' | grep -q destroy; then
-            echo "⚠️ Destroy 操作が含まれています。影響に注意してください。" >> pr_body.txt
-          fi
+            # destroy 判定（任意）
+            if jq '.resource_changes[].change.actions' tfplan.json | grep -q destroy; then
+              echo "⚠️ Destroy 操作が含まれています。影響に注意してください。" >> pr_body.txt
+            fi
 
-          jq -r '
-            .resource_changes[]
-            | select(.change.actions != ["no-op"])
-            | . as $res
-            | $res.change.before as $before
-            | $res.change.after as $after
-            | $before
-            | keys_unsorted[]
-            | select($before[.] != $after[.])
-            | "### \($res.address)\n"
-            + "- Actions: `\($res.change.actions | join(", "))`\n"
-            + "- Changed Key: `\(.)`\n"
-            + "- Before: `\($before[.] | tostring)`\n"
-            + "- After: `\($after[.] | tostring)`\n"
-          ' tfplan.json >> pr_body.txt
+            jq -r '
+              .resource_changes[]
+              | select(.change.actions != ["no-op"])
+              | . as $res
+              | $res.change.before as $before
+              | $res.change.after as $after
+              | $before
+              | keys_unsorted[]
+              | select($before[.] != $after[.])
+              | "### \($res.address)\n"
+              + "- Actions: `\($res.change.actions | join(", "))`\n"
+              + "- Changed Key: `\(.)`\n"
+              + "- Before: `\($before[.] | tostring)`\n"
+              + "- After: `\($after[.] | tostring)`\n"
+            ' tfplan.json >> pr_body.txt
 
       - name: Create PR with structured diff
         if: success()
