@@ -93,7 +93,7 @@ jobs:
       - name: Terraform Plan (capture text output)
         id: extract_plan
         run: |
-          plan_text=$(terraform plan -no-color | sed 's/`/\\`/g')
+          plan_text=$(terraform plan -no-color | sed 's/`/\\`/g' | awk '!note {print} /^Note:/ {note=1}')
           echo "plan_output<<EOF" >> "$GITHUB_OUTPUT"
           echo "$plan_text" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
