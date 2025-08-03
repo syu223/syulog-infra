@@ -115,7 +115,7 @@ jobs:
 
           ${DESTROY_NOTE}
           ${PLAN_OUTPUT}
-EOF
+          EOF
 
           gh pr create \
             --title "Terraform plan 実行結果に基づく更新" \
