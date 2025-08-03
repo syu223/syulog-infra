@@ -99,7 +99,7 @@ jobs:
           echo "Terraform plan に差分が検出されました。以下は変更内容の詳細です。" > pr_body.txt
 
           # destroy 判定（任意）
-          if terraform show -json tfplan | jq '.resource_changes[].change.actions' | grep -q destroy; then
+          if jq '.resource_changes[].change.actions' tfplan.json | grep -q destroy; then
             echo "⚠️ Destroy 操作が含まれています。影響に注意してください。" >> pr_body.txt
           fi
 
