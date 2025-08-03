@@ -92,7 +92,9 @@ jobs:
 
       - name: Terraform Plan (JSON + Markdown)
         id: extract_plan_structured
+        continue-on-error: true
         run: |
+
           terraform plan -out=tfplan
           terraform show -json tfplan > tfplan.json
 
@@ -113,10 +115,12 @@ jobs:
           ' tfplan.json > pr_body.txt
 
       - name: Create PR with structured diff
-        if: success() # terraform plan が成功している場合のみ
+        if: success()
         run: |
-          gh pr comment ${{ github.event.pull_request.number }} \
-            --body "$(cat pr_body.txt)"
+          gh pr create \
+            --title "Terraform plan に基づく差分更新" \
+            --body "$(cat pr_body.txt)" \
+            --head "${{ github.ref_name != '' && github.ref_name || github.head_ref }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
