@@ -114,7 +114,10 @@ jobs:
           Terraform plan に変更があるため、自動で PR を作成しました。
 
           ${DESTROY_NOTE}
+
+          \`\`\`
           ${PLAN_OUTPUT}
+          \`\`\`
           EOF
 
           gh pr create \
