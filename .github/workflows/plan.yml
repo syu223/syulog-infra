@@ -106,8 +106,8 @@ jobs:
             echo "destroy_warning=" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create PR for Terraform changes ← plan_output が使えるようになる
-        if: steps.extract_plan.outputs.plan_output != 'No changes.'
+      - name: Create PR for Terraform changes
+        if: github.ref_name != '' && steps.extract_plan.outputs.plan_output != 'No changes.'
         uses: peter-evans/create-pull-request@v4
         with:
           token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
