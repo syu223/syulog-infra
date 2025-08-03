@@ -99,7 +99,7 @@ jobs:
           #if terraform show -json tfplan | grep -q null; then
           #  echo "差分は検出されませんでした。" > pr_body.txt
           #else
-            terraform show -json tfplan > tfplan.json
+            #terraform show -json tfplan > tfplan.json
             echo "Terraform plan に差分が検出されました。以下は変更内容の詳細です。" > pr_body.txt
 
             # destroy 判定（任意）
