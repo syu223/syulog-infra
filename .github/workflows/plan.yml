@@ -90,40 +90,33 @@ jobs:
           role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE }}
           aws-region: ap-northeast-1
 
-      - name: Terraform Plan (capture text output)
-        id: extract_plan
+      - name: Terraform Plan (JSON + Markdown)
+        id: extract_plan_structured
         run: |
-          plan_text=$(terraform plan -no-color | sed 's/`/\\`/g' | awk '!note {print} /^Note:/ {note=1}')
-          echo "plan_output<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$plan_text" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          terraform plan -out=tfplan
+          terraform show -json tfplan > tfplan.json
 
-          if echo "$plan_text" | grep -q '^- destroy'; then
-            echo "destroy_warning=⚠️ Destroy 操作が含まれています。影響に注意してください。" >> "$GITHUB_OUTPUT"
-          else
-            echo "destroy_warning=" >> "$GITHUB_OUTPUT"
+          echo "Terraform plan に差分が検出されました。以下は変更内容の詳細です。" > pr_body.txt
+
+          # destroy 判定（任意）
+          if terraform show -json tfplan | jq '.resource_changes[].change.actions' | grep -q destroy; then
+            echo "⚠️ Destroy 操作が含まれています。影響に注意してください。" >> pr_body.txt
           fi
 
-      - name: Create PR using GitHub CLI
-        if: steps.extract_plan.outputs.plan_output != 'No changes.'
+          jq -r '
+            .resource_changes[]
+            | select(.change.actions != ["no-op"])
+            | "### " + .address + "\n"
+            + "- Actions: `" + (.change.actions | join(", ")) + "`\n"
+            + "- Before: `" + (.change.before | tostring) + "`\n"
+            + "- After: `" + (.change.after | tostring) + "`\n"
+          ' tfplan.json > pr_body.txt
+
+      - name: Create PR with structured diff
+        if: success() # terraform plan が成功している場合のみ
         run: |
-          PLAN_OUTPUT="${{ steps.extract_plan.outputs.plan_output }}"
-          DESTROY_NOTE="${{ steps.extract_plan.outputs.destroy_warning }}"
-
-          cat <<EOF > pr_body.txt
-          Terraform plan に変更があるため、自動で PR を作成しました。
-
-          ${DESTROY_NOTE}
-
-          \`\`\`
-          ${PLAN_OUTPUT}
-          \`\`\`
-          EOF
-
-          gh pr create \
-            --title "Terraform plan 実行結果に基づく更新" \
-            --body "$(cat pr_body.txt)" \
-            --head "${{ github.ref_name != '' && github.ref_name || github.head_ref }}"
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --body "$(cat pr_body.txt)"
         env:
-          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
