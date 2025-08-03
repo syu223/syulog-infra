@@ -110,9 +110,16 @@ jobs:
           PLAN_OUTPUT="${{ steps.extract_plan.outputs.plan_output }}"
           DESTROY_NOTE="${{ steps.extract_plan.outputs.destroy_warning }}"
 
+          cat <<EOF > pr_body.txt
+          Terraform plan に変更があるため、自動で PR を作成しました。
+
+          ${DESTROY_NOTE}
+          ${PLAN_OUTPUT}
+EOF
+
           gh pr create \
             --title "Terraform plan 実行結果に基づく更新" \
-            --body $'Terraform plan に変更があるため、自動で PR を作成しました。\n\n'"${DESTROY_NOTE}"$'\n\n```\n'"${PLAN_OUTPUT}"$'\n```' \
+            --body "$(cat pr_body.txt)" \
             --head "${{ github.ref_name != '' && github.ref_name || github.head_ref }}"
         env:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
