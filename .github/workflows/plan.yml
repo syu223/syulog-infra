@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 🔐 Request OIDC token
+      - name: Request OIDC token
         id: request-oidc-token
         uses: actions/github-script@v6
         with:
@@ -21,9 +21,9 @@ jobs:
             const token = await core.getIDToken();
             core.setOutput("id_token", token)
 
-      - name: 🔍 Decode OIDC token sub
+      - name: Decode OIDC token sub
         run: |
-          echo "🔐 Decoding OIDC token..."
+          echo "Decoding OIDC token..."
           echo "${{ steps.request-oidc-token.outputs.id_token }}" \
             | cut -d '.' -f2 \
             | base64 -d \
@@ -44,15 +44,15 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-      - name: ⤵️ Checkout
+      - name: ⤵Checkout
         uses: actions/checkout@v3
 
-      - name: ⚙️ Setup Terraform
+      - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_wrapper: false
 
-      - name: 🎨 Terraform Format Check (with diff)
+      - name: Terraform Format Check (with diff)
         run: |
           terraform fmt -check -recursive || true
 
@@ -68,32 +68,32 @@ jobs:
             exit 1
           fi
 
-      - name: 🧰 Setup TFLint
+      - name: Setup TFLint
         uses: terraform-linters/setup-tflint@v1
         with:
           tflint_version: latest
 
-      - name: 🔍 TFLint run
+      - name: TFLint run
         run: |
           tflint --init
           tflint
 
-      - name: 📦 Terraform Init
+      - name: Terraform Init
         run: terraform init -upgrade -no-color
 
-      - name: ✅ Terraform Validate
+      - name: Terraform Validate
         run: terraform validate -no-color
 
-      - name: 🔑 Configure AWS credentials
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE }}
           aws-region: ap-northeast-1
 
-      - name: 📋 Terraform Plan (capture text output)
+      - name: Terraform Plan (capture text output)
         id: extract_plan
         run: |
-          plan_text=$(terraform plan -no-color)
+          plan_text=$(terraform plan -no-color | sed 's/`/\\`/g')
           echo "plan_output<<EOF" >> "$GITHUB_OUTPUT"
           echo "$plan_text" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
@@ -104,14 +104,15 @@ jobs:
             echo "destroy_warning=" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: 🔃 Create PR using GitHub CLI
+      - name: Create PR using GitHub CLI
         if: steps.extract_plan.outputs.plan_output != 'No changes.'
         run: |
+          escaped_plan="$(echo "${{ steps.extract_plan.outputs.plan_output }}" | sed 's/`/\\`/g')"
+
           gh pr create \
             --title "Terraform plan 実行結果に基づく更新" \
-            --body "✅ Terraform plan に変更があるため、自動で PR を作成しました。\n\n${{ steps.extract_plan.outputs.destroy_warning }}\n\n```\n${{ steps.extract_plan.outputs.plan_output }}\n```" \
+            --body "Terraform plan に変更があるため、自動で PR を作成しました。\n\n${{ steps.extract_plan.outputs.destroy_warning }}\n\n```\n$escaped_plan\n```" \
             --head "${{ github.ref_name != '' && github.ref_name || github.head_ref }}"
-
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
 
