@@ -110,6 +110,8 @@ jobs:
           gh pr create \
             --title "Terraform plan 実行結果に基づく更新" \
             --body "✅ Terraform plan に変更があるため、自動で PR を作成しました。\n\n${{ steps.extract_plan.outputs.destroy_warning }}\n\n```\n${{ steps.extract_plan.outputs.plan_output }}\n```" \
-            --head "${{ github.ref_name != '' && github.ref_name || github.head_ref }"
+            --head "${{ github.ref_name != '' && github.ref_name || github.head_ref }}"
+
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
