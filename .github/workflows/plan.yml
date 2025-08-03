@@ -104,7 +104,7 @@ jobs:
             echo "destroy_warning=" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: 🔃 Create PR using GitHub CLI
+      - name: Create PR using GitHub CLI
         if: steps.extract_plan.outputs.plan_output != 'No changes.'
         run: |
           PLAN_OUTPUT="${{ steps.extract_plan.outputs.plan_output }}"
@@ -112,7 +112,7 @@ jobs:
 
           gh pr create \
             --title "Terraform plan 実行結果に基づく更新" \
-            --body $'✅ Terraform plan に変更があるため、自動で PR を作成しました。\n\n'"${DESTROY_NOTE}"$'\n\n```\n'"${PLAN_OUTPUT}"$'\n```' \
+            --body $'Terraform plan に変更があるため、自動で PR を作成しました。\n\n'"${DESTROY_NOTE}"$'\n\n```\n'"${PLAN_OUTPUT}"$'\n```' \
             --head "${{ github.ref_name != '' && github.ref_name || github.head_ref }}"
         env:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
