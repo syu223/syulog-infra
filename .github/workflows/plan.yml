@@ -109,8 +109,7 @@ jobs:
             | . as $res
             | $res.change.before as $before
             | $res.change.after as $after
-            | $before
-            | keys_unsorted[]
+            | ($before // {}) | keys_unsorted[]
             | select($before[.] != $after[.])
             | "### \($res.address)\n"
             + "- Actions: `\($res.change.actions | join(", "))`\n"
