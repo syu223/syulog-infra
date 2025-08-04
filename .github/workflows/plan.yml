@@ -19,30 +19,32 @@ jobs:
         with:
           script: |
             const token = await core.getIDToken();
-            core.setOutput("id_token", token);
+            core.setOutput("id_token", token)
 
-      - name: Decode OIDC token `sub`
+      - name: Decode OIDC token sub
         run: |
-          echo "🔐 Decoding OIDC token..."
-          echo "${{ steps.request-oidc-token.outputs.id_token }}" | cut -d '.' -f2 | base64 -d | jq '.sub'
+          echo "Decoding OIDC token..."
+          echo "${{ steps.request-oidc-token.outputs.id_token }}" \
+            | cut -d '.' -f2 \
+            | base64 -d \
+            | jq '.sub'
 
   terraform-plan:
+    runs-on: ubuntu-latest
+
     permissions:
       id-token: write
       contents: read
       pull-requests: write
       statuses: write
       issues: write
-    runs-on: ubuntu-latest
 
     env:
       TF_TOKEN_app_terraform_io: ${{ secrets.TERRAFORM_CLOUD_TOKEN }}
-      #TFC_ORG_NAME: syu-terraform
-      #TFC_WORKSPACE_NAME: syulog
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-      - name: Checkout
+      - name: ⤵Checkout
         uses: actions/checkout@v3
 
       - name: Setup Terraform
@@ -52,15 +54,14 @@ jobs:
 
       - name: Terraform Format Check (with diff)
         run: |
-          set -e
           terraform fmt -check -recursive || true
 
           TMPDIR=$(mktemp -d)
-          cp -r . $TMPDIR
-          cd $TMPDIR
+          cp -r . "$TMPDIR"
+          cd "$TMPDIR"
           terraform fmt -recursive
 
-          diff_output=$(diff -u --exclude='.terraform' --exclude='.git' -r . $GITHUB_WORKSPACE || true)
+          diff_output=$(diff -u --exclude='.terraform' --exclude='.git' -r . "$GITHUB_WORKSPACE" || true)
           if [ -n "$diff_output" ]; then
             echo "Terraform format issues detected:"
             echo "$diff_output"
@@ -72,12 +73,12 @@ jobs:
         with:
           tflint_version: latest
 
-      - name: TFLint
+      - name: TFLint run
         run: |
           tflint --init
           tflint
 
-      - name: terraform init
+      - name: Terraform Init
         run: terraform init -upgrade -no-color
 
       - name: Terraform Validate
@@ -89,51 +90,41 @@ jobs:
           role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE }}
           aws-region: ap-northeast-1
 
-      - name: Terraform Plan (output as binary)
-        run: terraform plan -no-color -out=tfplan.binary
-
-      - name: Extract plan output for comment
-        id: extract_plan
+      - name: Terraform Plan (JSON + Markdown)
+        id: extract_plan_structured
         run: |
-          plan_text=$(terraform show -no-color tfplan.binary)
-          echo "plan_output<<EOF" >> $GITHUB_OUTPUT
-          echo "$plan_text" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          terraform plan -out=tfplan
+          terraform show -json tfplan > tfplan.json
 
-          if echo "$plan_text" | grep -q '^- destroy'; then
-            echo "destroy_warning=⚠️ Destroy 操作が含まれています。影響に注意してください。" >> $GITHUB_OUTPUT
-            else
-            echo "destroy_warning=" >> $GITHUB_OUTPUT
+          echo "Terraform plan に差分が検出されました。以下は変更内容の詳細です。" > pr_body.txt
+
+          # destroy 判定（任意）
+          if jq '.resource_changes[].change.actions' tfplan.json | grep -q destroy; then
+            echo "⚠️ Destroy 操作が含まれています。影響に注意してください。" >> pr_body.txt
           fi
 
-      - name: Create PR for Terraform changes ← plan_output が使えるようになる
-        if: steps.extract_plan.outputs.plan_output != 'No changes.'
-        uses: peter-evans/create-pull-request@v4
-        with:
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-          commit-message: "Terraform plan 実行結果に基づく更新"
-          title: "Terraform plan 変更による自動 PR"
-          body: |
-            ✅ Terraform plan に変更があるため、自動で PR を作成しました。
-            以下の差分をご確認ください。
+          jq -r '
+            .resource_changes[]
+            | select(.change.actions != ["no-op"])
+            | . as $res
+            | $res.change.before as $before
+            | $res.change.after as $after
+            | ($before // {}) | keys_unsorted[]
+            | select($before[.] != $after[.])
+            | "### \($res.address)\n"
+            + "- Actions: `\($res.change.actions | join(", "))`\n"
+            + "- Changed Key: `\(.)`\n"
+            + "- Before: `\($before[.] | tostring)`\n"
+            + "- After: `\($after[.] | tostring)`\n"
+          ' tfplan.json >> pr_body.txt
 
-            ${{ steps.extract_plan.outputs.destroy_warning }}
+      - name: Create PR with structured diff
+        if: success()
+        run: |
+          gh pr create \
+            --title "Terraform plan に基づく差分更新" \
+            --body "$(cat pr_body.txt)" \
+            --head "${{ github.ref_name != '' && github.ref_name || github.head_ref }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
 
-            ```
-            ${{ steps.extract_plan.outputs.plan_output }}
-            ```
-
-      - name: Comment Plan result to PR
-        if: github.event_name == 'pull_request'
-        uses: peter-evans/create-or-update-comment@v3
-        with:
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-          repository: ${{ github.repository }}
-          issue-number: ${{ github.event.pull_request.number }}
-          body: |
-            ✅ Terraform プランが正常に実行されました。
-            ${{ steps.extract_plan.outputs.destroy_warning }}
-
-            ```
-            ${{ steps.extract_plan.outputs.plan_output }}
-            ```
